@@ -4,15 +4,8 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import RewardPage from './views/RewardPage.vue';
-
-export default {
-  name: 'App',
-  components: {
-    RewardPage
-  }
-};
 </script>
 
 <style>

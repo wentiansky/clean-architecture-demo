@@ -1,4 +1,3 @@
-<!-- UI层：奖励卡片组件 -->
 <template>
   <div class="reward-card" :class="statusClass">
     <div class="reward-icon">
@@ -22,75 +21,58 @@
   </div>
 </template>
 
-<script>
-// UI 层只负责展示和交互，不处理业务逻辑
-// 所有业务逻辑委托给 Application 层
-export default {
-  name: 'RewardCard',
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import type { Reward } from '@/application';
 
-  props: {
-    reward: {
-      type: Object,
-      required: true
-    }
-  },
+interface ClaimPayload {
+  rewardId: string;
+  onStart?: () => void;
+  onComplete?: () => void;
+}
 
-  data() {
-    return {
-      defaultIcon: 'https://via.placeholder.com/60',
-      loading: false
-    };
-  },
+const props = defineProps<{
+  reward: Reward;
+}>();
 
-  computed: {
-    // 根据奖励状态计算样式类
-    statusClass() {
-      return {
-        'is-claimed': this.reward.isClaimed,
-        'is-expired': this.reward.isExpired,
-        'is-available': this.reward.isClaimable
-      };
-    },
+const emit = defineEmits<{
+  claim: [payload: ClaimPayload];
+}>();
 
-    // 按钮样式
-    buttonClass() {
-      return {
-        'btn-claimed': this.reward.isClaimed,
-        'btn-expired': this.reward.isExpired,
-        'btn-primary': this.reward.isClaimable,
-        'loading': this.loading
-      };
-    },
+const defaultIcon = 'https://via.placeholder.com/60';
+const loading = ref(false);
 
-    // 是否可以点击
-    canClaim() {
-      return this.reward.isClaimable && !this.loading;
-    },
+const statusClass = computed(() => ({
+  'is-claimed': props.reward.isClaimed(),
+  'is-expired': props.reward.isExpired(),
+  'is-available': props.reward.isClaimable()
+}));
 
-    // 按钮文本
-    buttonText() {
-      if (this.loading) return '领取中...';
-      return this.reward.getButtonText?.() || '立即领取';
-    },
+const buttonClass = computed(() => ({
+  'btn-claimed': props.reward.isClaimed(),
+  'btn-expired': props.reward.isExpired(),
+  'btn-primary': props.reward.isClaimable(),
+  loading: loading.value
+}));
 
-    // 显示值
-    displayValue() {
-      return this.reward.getDisplayValue?.() || this.reward.value;
-    }
-  },
+const canClaim = computed(() => props.reward.isClaimable() && !loading.value);
+const buttonText = computed(() => (loading.value ? '领取中...' : props.reward.getButtonText()));
+const displayValue = computed(() => props.reward.getDisplayValue());
 
-  methods: {
-    // 处理领取点击 - 只负责触发事件，业务逻辑交给父组件
-    handleClaim() {
-      if (!this.canClaim) return;
-
-      this.$emit('claim', {
-        rewardId: this.reward.id,
-        onStart: () => { this.loading = true; },
-        onComplete: () => { this.loading = false; }
-      });
-    }
+const handleClaim = () => {
+  if (!canClaim.value) {
+    return;
   }
+
+  emit('claim', {
+    rewardId: props.reward.id,
+    onStart: () => {
+      loading.value = true;
+    },
+    onComplete: () => {
+      loading.value = false;
+    }
+  });
 };
 </script>
 
