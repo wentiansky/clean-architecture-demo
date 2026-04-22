@@ -3,8 +3,8 @@
     <header class="page-header">
       <h1>会员福利中心</h1>
       <p class="subtitle">{{ platformText }}端专享权益</p>
-      <div v-if="claimableCount > 0" class="badge">
-        {{ claimableCount }}个待领取
+      <div v-if="activeFilterCount > 0" class="badge">
+        {{ badgeText }}
       </div>
     </header>
 
@@ -14,6 +14,19 @@
         <span class="user-name">{{ userInfo.name || '游客' }}</span>
         <span class="user-level">{{ levelName }}</span>
       </div>
+    </div>
+
+    <div class="filter-bar" role="tablist" aria-label="奖励筛选">
+      <button
+        v-for="option in filterOptions"
+        :key="option.value"
+        class="filter-chip"
+        :class="{ active: activeFilter === option.value }"
+        type="button"
+        @click="activeFilter = option.value"
+      >
+        {{ option.label }}
+      </button>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -27,14 +40,14 @@
 
     <div v-else class="reward-list">
       <RewardCard
-        v-for="reward in rewardList"
+        v-for="reward in visibleRewards"
         :key="reward.id"
         :reward="reward"
         @claim="handleClaim"
       />
 
-      <div v-if="rewardList.length === 0" class="empty-state">
-        <p>暂无奖励</p>
+      <div v-if="visibleRewards.length === 0" class="empty-state">
+        <p>{{ emptyStateText }}</p>
       </div>
     </div>
 
@@ -82,7 +95,7 @@ import { Reward, rewardService } from '@/application';
 import platform from '@/adapter/platform';
 import router from '@/adapter/router';
 import storage from '@/adapter/storage';
-import type { LongTaskEntry, LongTaskItem, ToastType, UserInfo } from '@/types';
+import type { LongTaskEntry, LongTaskItem, RewardListFilter, ToastType, UserInfo } from '@/types';
 import RewardCard from '../components/RewardCard.vue';
 
 interface ClaimPayload {
@@ -96,13 +109,52 @@ const error = ref<string | null>(null);
 const toastMessage = ref('');
 const toastType = ref<ToastType>('success');
 const rewardList = ref<Reward[]>([]);
+const activeFilter = ref<RewardListFilter>('all');
 const userInfo = ref<UserInfo | null>(null);
 const defaultAvatar = 'https://via.placeholder.com/40';
 const longTasks = ref<LongTaskItem[]>([]);
 const isSimulating = ref(false);
 let longTaskObserver: PerformanceObserver | null = null;
 
-const claimableCount = computed(() => rewardList.value.filter((reward) => reward.isClaimable()).length);
+const filterOptions: Array<{ label: string; value: RewardListFilter }> = [
+  { label: '全部', value: 'all' },
+  { label: '可领取', value: 'claimable' },
+  { label: '已领取', value: 'claimed' },
+  { label: '已过期', value: 'expired' }
+];
+
+const visibleRewards = computed(() => rewardService.getFilteredRewards(activeFilter.value, rewardList.value));
+const activeFilterCount = computed(() => visibleRewards.value.length);
+const badgeText = computed(() => {
+  if (activeFilter.value === 'claimable') {
+    return `${activeFilterCount.value}个待领取`;
+  }
+
+  if (activeFilter.value === 'claimed') {
+    return `${activeFilterCount.value}个已领取`;
+  }
+
+  if (activeFilter.value === 'expired') {
+    return `${activeFilterCount.value}个已过期`;
+  }
+
+  return `${activeFilterCount.value}个奖励`;
+});
+const emptyStateText = computed(() => {
+  if (activeFilter.value === 'claimable') {
+    return '暂无可领取奖励';
+  }
+
+  if (activeFilter.value === 'claimed') {
+    return '暂无已领取奖励';
+  }
+
+  if (activeFilter.value === 'expired') {
+    return '暂无已过期奖励';
+  }
+
+  return '暂无奖励';
+});
 
 const platformText = computed(() => {
   const map: Record<string, string> = {
@@ -152,6 +204,7 @@ const handleClaim = async ({ rewardId, onStart, onComplete }: ClaimPayload) => {
 
   try {
     const result = await rewardService.claimReward(rewardId);
+    rewardList.value = [...rewardList.value];
     showToast(result.message, result.success ? 'success' : 'error');
   } finally {
     onComplete?.();
@@ -362,6 +415,31 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-chip {
+  border: 1px solid #d9deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #4a5568;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip.active {
+  border-color: #667eea;
+  background: #667eea;
+  color: #fff;
 }
 
 .user-avatar {

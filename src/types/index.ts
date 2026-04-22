@@ -1,5 +1,6 @@
 export type RewardType = 'cash' | 'coupon' | 'points';
 export type RewardStatus = 'available' | 'claimed' | 'expired';
+export type RewardListFilter = 'all' | 'claimable' | 'claimed' | 'expired';
 export type PlatformType = 'h5' | 'wechat' | 'android' | 'ios';
 export type ToastType = 'success' | 'error';
 

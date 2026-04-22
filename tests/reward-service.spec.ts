@@ -4,6 +4,42 @@ import bridge from '@/adapter/bridge';
 import storage from '@/adapter/storage';
 import type { RewardDTO, UserInfo } from '@/types';
 
+const createRewardList = (): RewardDTO[] => [
+  {
+    id: 'reward_001',
+    name: '会员券',
+    type: 'coupon',
+    value: 50,
+    description: '会员券',
+    icon: '',
+    status: 'available',
+    expireTime: '2099-01-01T00:00:00Z',
+    rules: { memberOnly: true, minLevel: 2 }
+  },
+  {
+    id: 'reward_002',
+    name: '已领取奖励',
+    type: 'points',
+    value: 20,
+    description: '已领取',
+    icon: '',
+    status: 'claimed',
+    claimTime: '2026-04-01T00:00:00Z',
+    rules: {}
+  },
+  {
+    id: 'reward_003',
+    name: '已过期奖励',
+    type: 'cash',
+    value: 30,
+    description: '已过期',
+    icon: '',
+    status: 'available',
+    expireTime: '2000-01-01T00:00:00Z',
+    rules: {}
+  }
+];
+
 vi.mock('@/adapter/api/reward', () => ({
   rewardApi: {
     getRewardList: vi.fn(),
@@ -20,20 +56,6 @@ vi.mock('@/adapter/bridge', () => ({
 }));
 
 describe('RewardService', () => {
-  const rewardList: RewardDTO[] = [
-    {
-      id: 'reward_001',
-      name: '会员券',
-      type: 'coupon',
-      value: 50,
-      description: '会员券',
-      icon: '',
-      status: 'available',
-      expireTime: '2099-01-01T00:00:00Z',
-      rules: { memberOnly: true, minLevel: 2 }
-    }
-  ];
-
   const user: UserInfo = {
     id: 'user_1',
     name: 'Tester',
@@ -50,6 +72,28 @@ describe('RewardService', () => {
     storage.set('user_info', user);
   });
 
+  it('filters rewards by status from current in-memory list', () => {
+    const service = new RewardService();
+    service.rewardList = createRewardList().map((item) => new Reward(item));
+
+    expect(service.getFilteredRewards()).toHaveLength(3);
+    expect(service.getFilteredRewards('claimable').map((item) => item.id)).toEqual(['reward_001']);
+    expect(service.getFilteredRewards('claimed').map((item) => item.id)).toEqual(['reward_002']);
+    expect(service.getFilteredRewards('expired').map((item) => item.id)).toEqual(['reward_003']);
+  });
+
+  it('returns empty arrays for filters with no matches', () => {
+    const service = new RewardService();
+    service.rewardList = [
+      new Reward({
+        ...createRewardList()[1]
+      })
+    ];
+
+    expect(service.getFilteredRewards('claimable')).toEqual([]);
+    expect(service.getFilteredRewards('expired')).toEqual([]);
+  });
+
   it('returns not found message when reward does not exist', async () => {
     const service = new RewardService();
 
@@ -59,7 +103,7 @@ describe('RewardService', () => {
 
   it('returns login required message when user info is missing', async () => {
     const service = new RewardService();
-    service.rewardList = [new Reward(rewardList[0])];
+    service.rewardList = [new Reward(createRewardList()[0])];
     storage.remove('user_info');
 
     const result = await service.claimReward('reward_001');
@@ -68,7 +112,7 @@ describe('RewardService', () => {
 
   it('returns member-only message for non-member users', async () => {
     const service = new RewardService();
-    service.rewardList = [new Reward(rewardList[0])];
+    service.rewardList = [new Reward(createRewardList()[0])];
     storage.set('user_info', { ...user, isMember: false });
 
     const result = await service.claimReward('reward_001');
@@ -77,7 +121,7 @@ describe('RewardService', () => {
 
   it('returns level restriction message when user level is too low', async () => {
     const service = new RewardService();
-    service.rewardList = [new Reward(rewardList[0])];
+    service.rewardList = [new Reward(createRewardList()[0])];
     storage.set('user_info', { ...user, isMember: true, level: 1 });
 
     const result = await service.claimReward('reward_001');
@@ -88,7 +132,7 @@ describe('RewardService', () => {
     const service = new RewardService();
     service.rewardList = [
       new Reward({
-        ...rewardList[0],
+        ...createRewardList()[0],
         rules: {
           dailyLimit: 1
         }
@@ -103,7 +147,8 @@ describe('RewardService', () => {
 
   it('returns already claimed message when reward is claimed', async () => {
     const service = new RewardService();
-    service.rewardList = rewardList
+    service.rewardList = createRewardList()
+      .slice(0, 1)
       .map((item) => ({ ...item, status: 'claimed' as const }))
       .map((item) => new Reward(item));
 
@@ -115,7 +160,7 @@ describe('RewardService', () => {
     const service = new RewardService();
     service.rewardList = [
       new Reward({
-        ...rewardList[0],
+        ...createRewardList()[0],
         expireTime: '2000-01-01T00:00:00Z'
       })
     ];
@@ -129,7 +174,7 @@ describe('RewardService', () => {
     vi.mocked(rewardApi.getRewardList).mockResolvedValue({
       data: {
         code: 0,
-        data: { list: rewardList }
+        data: { list: createRewardList().slice(0, 1) }
       },
       status: 200,
       config: { url: '/api/reward/list' }
@@ -160,7 +205,7 @@ describe('RewardService', () => {
   it('uses cached rewards when cache is valid and forceRefresh is false', async () => {
     const service = new RewardService();
     storage.set('reward_list_cache', {
-      data: rewardList,
+      data: createRewardList().slice(0, 1),
       timestamp: Date.now()
     });
 
@@ -180,7 +225,7 @@ describe('RewardService', () => {
     vi.mocked(rewardApi.getRewardList).mockResolvedValue({
       data: {
         code: 0,
-        data: { list: rewardList }
+        data: { list: createRewardList().slice(0, 1) }
       },
       status: 200,
       config: { url: '/api/reward/list' }
@@ -203,7 +248,7 @@ describe('RewardService', () => {
 
   it('returns network error message when claim request fails', async () => {
     const service = new RewardService();
-    service.rewardList = [new Reward(rewardList[0])];
+    service.rewardList = [new Reward(createRewardList()[0])];
     vi.mocked(rewardApi.claimReward).mockRejectedValue(new Error('network'));
 
     const result = await service.claimReward('reward_001');

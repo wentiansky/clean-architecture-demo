@@ -6,6 +6,7 @@ import type {
   ClaimEligibilityResult,
   ClaimResult,
   GetRewardListParams,
+  RewardListFilter,
   RewardDTO,
   UserInfo
 } from '@/types';
@@ -100,6 +101,22 @@ export class RewardService {
 
   getClaimableCount(): number {
     return this.rewardList.filter((item) => item.isClaimable()).length;
+  }
+
+  getFilteredRewards(filter: RewardListFilter = 'all', rewards: Reward[] = this.rewardList): Reward[] {
+    if (filter === 'claimable') {
+      return rewards.filter((item) => item.isClaimable());
+    }
+
+    if (filter === 'claimed') {
+      return rewards.filter((item) => item.isClaimed());
+    }
+
+    if (filter === 'expired') {
+      return rewards.filter((item) => item.isExpired());
+    }
+
+    return rewards;
   }
 
   private checkClaimEligibility(reward: Reward): ClaimEligibilityResult {
