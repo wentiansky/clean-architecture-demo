@@ -94,6 +94,63 @@ describe('RewardService', () => {
     expect(service.getFilteredRewards('expired')).toEqual([]);
   });
 
+  it('sorts rewards with no expiry first, then by nearest expiry, while keeping stable order', () => {
+    const service = new RewardService();
+    const rewards = [
+      new Reward({
+        id: 'same_time_a',
+        name: '同时间A',
+        type: 'coupon',
+        value: 5,
+        description: '',
+        icon: '',
+        status: 'available',
+        expireTime: '2099-06-01T00:00:00Z',
+        rules: {}
+      }),
+      new Reward({
+        id: 'no_expire',
+        name: '永久奖励',
+        type: 'coupon',
+        value: 50,
+        description: '',
+        icon: '',
+        status: 'available',
+        expireTime: null,
+        rules: {}
+      }),
+      new Reward({
+        id: 'same_time_b',
+        name: '同时间B',
+        type: 'coupon',
+        value: 6,
+        description: '',
+        icon: '',
+        status: 'available',
+        expireTime: '2099-06-01T00:00:00Z',
+        rules: {}
+      }),
+      new Reward({
+        id: 'sooner',
+        name: '更快过期',
+        type: 'coupon',
+        value: 10,
+        description: '',
+        icon: '',
+        status: 'available',
+        expireTime: '2099-01-01T00:00:00Z',
+        rules: {}
+      })
+    ];
+
+    expect(service.getSortedRewards(rewards).map((reward) => reward.id)).toEqual([
+      'no_expire',
+      'sooner',
+      'same_time_a',
+      'same_time_b'
+    ]);
+  });
+
   it('returns not found message when reward does not exist', async () => {
     const service = new RewardService();
 

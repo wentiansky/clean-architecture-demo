@@ -119,6 +119,25 @@ export class RewardService {
     return rewards;
   }
 
+  getSortedRewards(rewards: Reward[] = this.rewardList): Reward[] {
+    return rewards
+      .map((reward, index) => ({
+        reward,
+        index
+      }))
+      .sort((left, right) => {
+        const leftExpireTime = this.getRewardSortTime(left.reward);
+        const rightExpireTime = this.getRewardSortTime(right.reward);
+
+        if (leftExpireTime === rightExpireTime) {
+          return left.index - right.index;
+        }
+
+        return leftExpireTime - rightExpireTime;
+      })
+      .map(({ reward }) => reward);
+  }
+
   private checkClaimEligibility(reward: Reward): ClaimEligibilityResult {
     const userInfo = storage.get<UserInfo>('user_info');
     if (!userInfo) {
@@ -206,6 +225,14 @@ export class RewardService {
   private getTodayClaimCount(rewardId: string): number {
     const key = `claim_count_${rewardId}_${new Date().toDateString()}`;
     return storage.get<number>(key) ?? 0;
+  }
+
+  private getRewardSortTime(reward: Reward): number {
+    if (!reward.expireTime) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    return new Date(reward.expireTime).getTime();
   }
 }
 

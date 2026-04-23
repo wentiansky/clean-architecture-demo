@@ -123,7 +123,10 @@ const filterOptions: Array<{ label: string; value: RewardListFilter }> = [
   { label: '已过期', value: 'expired' }
 ];
 
-const visibleRewards = computed(() => rewardService.getFilteredRewards(activeFilter.value, rewardList.value));
+const visibleRewards = computed(() => {
+  const filteredRewards = rewardService.getFilteredRewards(activeFilter.value, rewardList.value);
+  return rewardService.getSortedRewards(filteredRewards);
+});
 const activeFilterCount = computed(() => visibleRewards.value.length);
 const badgeText = computed(() => {
   if (activeFilter.value === 'claimable') {
